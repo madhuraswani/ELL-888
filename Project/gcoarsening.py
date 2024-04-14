@@ -67,22 +67,22 @@ flags.DEFINE_float(
     upper_bound=1)
 flags.DEFINE_integer(
     'n_digits',
-    1,
+    3,
     'Number of digits.',
     lower_bound=0)
 flags.DEFINE_integer(
     'n_superNodes',
-    10,
+    1000,
     'Number of SuperNodes.',
     lower_bound=0)
 flags.DEFINE_integer(
     'n_epochs',
-    100,
+    1000,
     'Number of epochs.',
     lower_bound=0)
 flags.DEFINE_float(
     'learning_rate',
-    0.01,
+    0.001,
     'Learning rate.',
     lower_bound=0)
 
@@ -162,11 +162,10 @@ def build_coarseGraph(input_features,
   output=transform(output)
   
 
-  super_Node = getCMatrix.GetCMatrix(no_of_super_nodes=FLAGS.n_superNodes)([output])
-  pool,C_matrix=dmon.DMoN(n_clusters=FLAGS.n_superNodes)([super_Node,input_graph])
+  super_Node = getCMatrix.GetCMatrix(no_of_super_nodes=FLAGS.n_superNodes)([output,input_graph])
   return tf.keras.Model(
       inputs=[input_features, input_graph, input_adjacency],
-      outputs=[pool,C_matrix])
+      outputs=[super_Node])
 
 
 def main(argv):
@@ -209,7 +208,7 @@ def main(argv):
           ' '.join([f'{loss_value.numpy():.4f}' for loss_value in loss_values]))
 
   # Obtain the cluster assignments.
-  pool,assignments = model([features, graph_normalized, graph], training=False)
+  assignments = model([features, graph_normalized, graph], training=False)
   print(assignments)
   assignments = assignments.numpy()
   assignments_r=np.round(assignments)
