@@ -33,6 +33,7 @@ from typing import Tuple
 from absl import app
 from absl import flags
 import numpy as np
+import scipy.io
 import scipy.sparse
 from scipy.sparse import base
 import sklearn.metrics
@@ -47,7 +48,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string(
     'graph_path',
-    'C:/Users/Madhur/Documents/IITD/ELL-888/Project/data/SingleCell_gene_/GRCh38/matrix.mtx',
+    'singlecell1.npz',
     'Input graph path.')
 flags.DEFINE_list(
     'architecture',
@@ -66,12 +67,12 @@ flags.DEFINE_float(
     upper_bound=1)
 flags.DEFINE_integer(
     'n_clusters',
-    1,
+    8,
     'Number of clusters.',
     lower_bound=0)
 flags.DEFINE_integer(
     'n_epochs',
-    8,
+    500,
     'Number of epochs.',
     lower_bound=0)
 flags.DEFINE_float(
@@ -129,10 +130,8 @@ def load_npz(
         0], 'Adjacency and feature size must be equal!'
     assert labels.shape[0] == label_indices.shape[
         0], 'Labels and label_indices size must be equal!'
-    
-
-
-    return adjacency, features, labels, label_indices
+    print(labels)
+    return adjacency, features  , labels, label_indices
   else:
      features=scipy.io.mmread(filename)
      features=features.T
@@ -186,7 +185,7 @@ def main(argv):
     raise app.UsageError('Too many command-line arguments.')
   # Load and process the data (convert node features to dense, normalize the
   # graph, convert it to Tensorflow sparse tensor.
-  adjacency, features = load_npz(FLAGS.graph_path)
+  adjacency, features ,labels, label_indices = load_npz(FLAGS.graph_path)
   features = features.todense()
   n_nodes = adjacency.shape[0]
   feature_size = features.shape[1]
@@ -226,17 +225,18 @@ def main(argv):
   assignments = assignments.numpy()
   clusters = assignments.argmax(axis=1)  # Convert soft to hard clusters.
   print(clusters)
+  
 
   # Prints some metrics used in the paper.
   print('Conductance:', metrics.conductance(adjacency, clusters))
   print('Modularity:', metrics.modularity(adjacency, clusters))
-  # print(
-  #     'NMI:',
-  #     sklearn.metrics.normalized_mutual_info_score(
-  #         labels, clusters[label_indices], average_method='arithmetic'))
-  # precision = metrics.pairwise_precision(labels, clusters[label_indices])
-  # recall = metrics.pairwise_recall(labels, clusters[label_indices])
-  # print('F1:', 2 * precision * recall / (precision + recall))
+  print(
+      'NMI:',
+      sklearn.metrics.normalized_mutual_info_score(
+          labels, clusters[label_indices], average_method='arithmetic'))
+  precision = metrics.pairwise_precision(labels, clusters[label_indices])
+  recall = metrics.pairwise_recall(labels, clusters[label_indices])
+  print('F1:', 2 * precision * recall / (precision + recall))
 
 
 if __name__ == '__main__':
