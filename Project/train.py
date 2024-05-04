@@ -47,7 +47,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string(
     'graph_path',
-    'data/cora.npz',
+    'C:/Users/Madhur/Documents/IITD/ELL-888/Project/data/SingleCell_gene_/GRCh38/matrix.mtx',
     'Input graph path.')
 flags.DEFINE_list(
     'architecture',
@@ -66,12 +66,12 @@ flags.DEFINE_float(
     upper_bound=1)
 flags.DEFINE_integer(
     'n_clusters',
-    1000,
+    1,
     'Number of clusters.',
     lower_bound=0)
 flags.DEFINE_integer(
     'n_epochs',
-    1000,
+    8,
     'Number of epochs.',
     lower_bound=0)
 flags.DEFINE_float(
@@ -80,6 +80,23 @@ flags.DEFINE_float(
     'Learning rate.',
     lower_bound=0)
 
+def k_nearest_Graph(A,k):
+    A=A.tocsr()
+    graph=[]
+    for i,row in zip(range(A.shape[0]),A):
+        adjacency=list(np.zeros(A.shape[0]))
+        
+        distance=[]
+        for point in A:
+            diff=row-point
+            diff=diff.todense()
+            diff=np.square(diff)
+            distance.append(np.sum(diff)**(1/2))
+        for val in np.sort(distance)[:k+1]:
+            index=distance.index(val)
+            adjacency[index]=1
+        graph.append(adjacency)
+    return scipy.sparse.csr_matrix(graph)
 
 def load_npz(
     filename
@@ -94,24 +111,33 @@ def load_npz(
     matrix of a graph, sparse feature matrix, dense label array, and dense label
     index array (indices of nodes that have the labels in the label array).
   """
-  with np.load(open(filename, 'rb'), allow_pickle=True) as loader:
-    loader = dict(loader)
-    adjacency = scipy.sparse.csr_matrix(
-        (loader['adj_data'], loader['adj_indices'], loader['adj_indptr']),
-        shape=loader['adj_shape'])
+  if filename.endswith('.npz'):
+    with np.load(open(filename, 'rb'), allow_pickle=True) as loader:
+      loader = dict(loader)
+      adjacency = scipy.sparse.csr_matrix(
+          (loader['adj_data'], loader['adj_indices'], loader['adj_indptr']),
+          shape=loader['adj_shape'])
 
-    features = scipy.sparse.csr_matrix(
-        (loader['feature_data'], loader['feature_indices'],
-         loader['feature_indptr']),
-        shape=loader['feature_shape'])
+      features = scipy.sparse.csr_matrix(
+          (loader['feature_data'], loader['feature_indices'],
+          loader['feature_indptr']),
+          shape=loader['feature_shape'])
 
-    label_indices = loader['label_indices']
-    labels = loader['labels']
-  assert adjacency.shape[0] == features.shape[
-      0], 'Adjacency and feature size must be equal!'
-  assert labels.shape[0] == label_indices.shape[
-      0], 'Labels and label_indices size must be equal!'
-  return adjacency, features, labels, label_indices
+      label_indices = loader['label_indices']
+      labels = loader['labels']
+    assert adjacency.shape[0] == features.shape[
+        0], 'Adjacency and feature size must be equal!'
+    assert labels.shape[0] == label_indices.shape[
+        0], 'Labels and label_indices size must be equal!'
+    
+
+
+    return adjacency, features, labels, label_indices
+  else:
+     features=scipy.io.mmread(filename)
+     features=features.T
+     adjacency=k_nearest_Graph(features,6)
+     return adjacency,features.tocsr()
 
 
 def convert_scipy_sparse_to_sparse_tensor(
@@ -160,10 +186,13 @@ def main(argv):
     raise app.UsageError('Too many command-line arguments.')
   # Load and process the data (convert node features to dense, normalize the
   # graph, convert it to Tensorflow sparse tensor.
-  adjacency, features, labels, label_indices = load_npz(FLAGS.graph_path)
+  adjacency, features = load_npz(FLAGS.graph_path)
   features = features.todense()
   n_nodes = adjacency.shape[0]
   feature_size = features.shape[1]
+
+
+  
   graph = convert_scipy_sparse_to_sparse_tensor(adjacency)
   graph_normalized = convert_scipy_sparse_to_sparse_tensor(
       utils.normalize_graph(adjacency.copy()))
@@ -201,13 +230,13 @@ def main(argv):
   # Prints some metrics used in the paper.
   print('Conductance:', metrics.conductance(adjacency, clusters))
   print('Modularity:', metrics.modularity(adjacency, clusters))
-  print(
-      'NMI:',
-      sklearn.metrics.normalized_mutual_info_score(
-          labels, clusters[label_indices], average_method='arithmetic'))
-  precision = metrics.pairwise_precision(labels, clusters[label_indices])
-  recall = metrics.pairwise_recall(labels, clusters[label_indices])
-  print('F1:', 2 * precision * recall / (precision + recall))
+  # print(
+  #     'NMI:',
+  #     sklearn.metrics.normalized_mutual_info_score(
+  #         labels, clusters[label_indices], average_method='arithmetic'))
+  # precision = metrics.pairwise_precision(labels, clusters[label_indices])
+  # recall = metrics.pairwise_recall(labels, clusters[label_indices])
+  # print('F1:', 2 * precision * recall / (precision + recall))
 
 
 if __name__ == '__main__':
