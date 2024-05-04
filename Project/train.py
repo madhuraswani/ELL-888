@@ -225,7 +225,7 @@ def main(argv):
   assignments = assignments.numpy()
   clusters = assignments.argmax(axis=1)  # Convert soft to hard clusters.
   print(clusters)
-  
+  np.savetxt("clusters.csv",clusters,fmt='%s',delimiter="\n")
 
   # Prints some metrics used in the paper.
   print('Conductance:', metrics.conductance(adjacency, clusters))
